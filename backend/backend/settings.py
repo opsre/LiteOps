@@ -195,5 +195,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 构建相关配置
 # BUILD_ROOT = Path('/Users/huk/Downloads/data')  # 修改为指定目录
-BUILD_ROOT = Path('/data')
+BUILD_ROOT = Path('/Users/apple/development/ops-data')
 BUILD_ROOT.mkdir(exist_ok=True, parents=True)  # 确保目录存在，包括父目录

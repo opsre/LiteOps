@@ -5,6 +5,7 @@ from apps.views.project import ProjectView, ProjectServiceView
 from apps.views.environment import EnvironmentView, EnvironmentTypeView
 from apps.views.credentials import CredentialView
 from apps.views.gitlab import GitlabBranchView, GitlabCommitView
+from apps.views.github import GithubBranchView, GithubCommitView
 from apps.views.build import BuildTaskView, BuildExecuteView
 from apps.views.build_history import BuildHistoryView, BuildLogView, BuildStageLogView
 from apps.views.build_sse import BuildLogSSEView
@@ -29,6 +30,8 @@ urlpatterns = [
     path('api/credentials/', CredentialView.as_view(), name='credentials'),
     path('api/gitlab/branches/', GitlabBranchView.as_view(), name='gitlab-branches'),
     path('api/gitlab/commits/', GitlabCommitView.as_view(), name='gitlab-commits'),
+    path('api/github/branches/', GithubBranchView.as_view(), name='github-branches'),
+    path('api/github/commits/', GithubCommitView.as_view(), name='github-commits'),
     path('api/build/tasks/', BuildTaskView.as_view(), name='build-tasks'),
     path('api/build/tasks/<str:task_id>/', BuildTaskView.as_view(), name='build-task-detail'),
     path('api/build/tasks/build', BuildExecuteView.as_view(), name='build-execute'),

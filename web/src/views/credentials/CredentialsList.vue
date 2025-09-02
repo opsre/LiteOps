@@ -40,6 +40,31 @@
           </a-table>
         </a-tab-pane>
 
+        <!-- GitHub Token凭证 Tab -->
+        <a-tab-pane key="github_token" tab="GitHub Token凭证">
+          <a-table
+            :columns="columns"
+            :data-source="credentials"
+            :loading="loading"
+            :pagination="false"
+            :locale="{ emptyText: '暂无数据' }"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'action'">
+                <a-space>
+                  <a-button type="link" @click="handleEdit(record)">编辑</a-button>
+                  <a-popconfirm
+                    title="确定要删除这个凭证吗？"
+                    @confirm="handleDelete(record)"
+                  >
+                    <a-button type="link" danger>删除</a-button>
+                  </a-popconfirm>
+                </a-space>
+              </template>
+            </template>
+          </a-table>
+        </a-tab-pane>
+
         <!-- SSH密钥凭证 Tab -->
         <a-tab-pane key="ssh_key" tab="SSH密钥凭证">
           <a-table
@@ -199,6 +224,26 @@
           <a-form-item label="私钥密码 (可选)" name="passphrase">
             <a-input-password v-model:value="formState.passphrase" placeholder="如果私钥有密码保护，请输入密码" />
           </a-form-item>
+        </template>
+
+        <!-- GitHub Token凭证表单 -->
+        <template v-if="activeTab === 'github_token'">
+          <a-form-item label="GitHub Token" name="token">
+            <a-input-password v-model:value="formState.token" placeholder="请输入GitHub Token" />
+          </a-form-item>
+          <a-alert
+            message="GitHub Token使用说明"
+            type="info"
+            show-icon
+          >
+            <template #description>
+              <div>
+                <p>• 需要在GitHub上生成个人访问令牌（Personal Access Token）</p>
+                <p>• 令牌需要具有repo权限以访问私有仓库</p>
+                <p>• 建议使用具有最小必要权限的令牌</p>
+              </div>
+            </template>
+          </a-alert>
         </template>
 
         <!-- Kubeconfig凭证表单 -->
@@ -427,9 +472,10 @@ const rules = computed(() => {
   // 根据不同的凭证类型返回不同的验证规则
   switch (activeTab.value) {
     case 'gitlab_token':
+    case 'github_token':
       return {
         ...baseRules,
-        token: [{ required: !editingCredential.value, message: '请输入GitLab Token' }],
+        token: [{ required: !editingCredential.value, message: `请输入${activeTab.value === 'gitlab_token' ? 'GitLab' : 'GitHub'} Token` }],
       };
     case 'ssh_key':
       return {
@@ -515,6 +561,7 @@ const handleEdit = (record) => {
 
   switch (activeTab.value) {
     case 'gitlab_token':
+    case 'github_token':
       Object.assign(formState, {
         ...commonFields,
         // 不回显token
@@ -705,6 +752,7 @@ const handleModalOk = async () => {
     // 根据凭证类型添加不同的字段
     switch (activeTab.value) {
       case 'gitlab_token':
+      case 'github_token':
         Object.assign(data, {
           token: formState.token,
         });

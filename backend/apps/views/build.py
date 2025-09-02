@@ -144,6 +144,10 @@ class BuildTaskView(View):
                                 'credential_id': task.git_token.credential_id,
                                 'name': task.git_token.name
                             } if task.git_token else None,
+                            'github_token': {
+                                'credential_id': task.github_token.credential_id,
+                                'name': task.github_token.name
+                            } if task.github_token else None,
                             'stages': task.stages,
                             'parameters': task.parameters,
                             'notification_channels': task.notification_channels,
@@ -331,71 +335,94 @@ class BuildTaskView(View):
     def post(self, request):
         """创建构建任务"""
         try:
+            # 获取当前用户的权限信息
+            user_permissions = get_user_permissions(request.user_id)
+            data_permissions = user_permissions.get('data', {})
+            function_permissions = user_permissions.get('function', {})
+            build_permissions = function_permissions.get('build_task', [])
+
+            # 检查用户是否有构建任务创建权限
+            if 'create' not in build_permissions:
+                logger.warning(f'用户[{request.user_id}]没有构建任务创建权限')
+                return JsonResponse({
+                    'code': 403,
+                    'message': '没有权限创建构建任务'
+                }, status=403)
+
             with transaction.atomic():
                 data = json.loads(request.body)
+                
                 name = data.get('name')
                 project_id = data.get('project_id')
                 environment_id = data.get('environment_id')
                 description = data.get('description')
                 branch = data.get('branch', 'main')
                 git_token_id = data.get('git_token_id')
-                stages = data.get('stages', [])
-                parameters = data.get('parameters', [])
-                notification_channels = data.get('notification_channels', [])
-
+                github_token_id = data.get('github_token_id')
+                stages = data.get('stages')
+                parameters = data.get('parameters')
+                notification_channels = data.get('notification_channels')
+                
                 # 自动构建配置
                 auto_build_enabled = data.get('auto_build_enabled', False)
                 auto_build_branches = data.get('auto_build_branches', [])
-                webhook_token = data.get('webhook_token', '')
+                webhook_token = data.get('webhook_token')
 
                 # 外部脚本库配置
-                use_external_script = data.get('use_external_script')
+                use_external_script = data.get('use_external_script', False)
                 external_script_config = None
-                if 'use_external_script' in data:
-                    if use_external_script:
-                        repo_url = data.get('external_script_repo_url', '').strip()
-                        directory = data.get('external_script_directory', '').strip()
-                        external_script_branch = data.get('external_script_branch', '').strip()
-                        token_id = data.get('external_script_token_id')
+                if use_external_script:
+                    repo_url = data.get('external_script_repo_url', '').strip()
+                    directory = data.get('external_script_directory', '').strip()
+                    external_script_branch = data.get('external_script_branch', '').strip()
+                    token_id = data.get('external_script_token_id')
+                    
+                    # 验证外部脚本库必填字段
+                    if not repo_url:
+                        return JsonResponse({
+                            'code': 400,
+                            'message': '外部脚本库仓库地址不能为空'
+                        })
+                    if not directory:
+                        return JsonResponse({
+                            'code': 400,
+                            'message': '外部脚本库存放目录不能为空'
+                        })
+                    if not external_script_branch:
+                        return JsonResponse({
+                            'code': 400,
+                            'message': '外部脚本库分支不能为空'
+                        })
+                    
+                    external_script_config = {
+                        'repo_url': repo_url,
+                        'directory': directory,
+                        'branch': external_script_branch,
+                        'token_id': token_id
+                    }
 
-                        # 验证外部脚本库必填字段
-                        if not repo_url:
-                            return JsonResponse({
-                                'code': 400,
-                                'message': '外部脚本库仓库地址不能为空'
-                            })
-                        if not directory:
-                            return JsonResponse({
-                                'code': 400,
-                                'message': '外部脚本库存放目录不能为空'
-                            })
-                        if not external_script_branch:
-                            return JsonResponse({
-                                'code': 400,
-                                'message': '外部脚本库分支名称不能为空'
-                            })
-
-                        external_script_config = {
-                            'repo_url': repo_url,
-                            'directory': directory,
-                            'branch': external_script_branch,
-                            'token_id': token_id
-                        }
-                    else:
-                        external_script_config = {}
-
-                # 验证必要字段
-                if not all([name, project_id, environment_id]):
+                # 验证必填字段
+                if not name:
                     return JsonResponse({
                         'code': 400,
-                        'message': '任务名称、项目和环境不能为空'
+                        'message': '任务名称不能为空'
+                    })
+                if not project_id:
+                    return JsonResponse({
+                        'code': 400,
+                        'message': '项目ID不能为空'
+                    })
+                if not environment_id:
+                    return JsonResponse({
+                        'code': 400,
+                        'message': '环境ID不能为空'
                     })
 
-                # 检查任务名称是否已存在
-                if BuildTask.objects.filter(name=name).exists():
+                # 验证构建阶段配置
+                if not stages:
                     return JsonResponse({
                         'code': 400,
-                        'message': f'任务名称 "{name}" 已存在，请使用其他名称'
+                        'message': '构建阶段不能为空'
                     })
 
                 # 验证参数配置格式
@@ -456,6 +483,17 @@ class BuildTaskView(View):
                             'message': 'GitLab Token凭证不存在'
                         })
 
+                # 检查GitHub Token凭证是否存在
+                github_token = None
+                if github_token_id:
+                    try:
+                        github_token = GitHubTokenCredential.objects.get(credential_id=github_token_id)
+                    except GitHubTokenCredential.DoesNotExist:
+                        return JsonResponse({
+                            'code': 404,
+                            'message': 'GitHub Token凭证不存在'
+                        })
+
                 # 如果启用自动构建但没有webhook_token，生成一个
                 if auto_build_enabled and not webhook_token:
                     import secrets
@@ -471,6 +509,7 @@ class BuildTaskView(View):
                     description=description,
                     branch=branch,
                     git_token=git_token,
+                    github_token=github_token,
                     stages=stages,
                     parameters=parameters,
                     notification_channels=notification_channels,
@@ -507,6 +546,14 @@ class BuildTaskView(View):
             function_permissions = user_permissions.get('function', {})
             build_permissions = function_permissions.get('build_task', [])
 
+            # 检查用户是否有构建任务编辑权限
+            if 'edit' not in build_permissions:
+                logger.warning(f'用户[{request.user_id}]没有构建任务编辑权限')
+                return JsonResponse({
+                    'code': 403,
+                    'message': '没有权限编辑构建任务'
+                }, status=403)
+
             with transaction.atomic():
                 data = json.loads(request.body)
                 
@@ -517,6 +564,7 @@ class BuildTaskView(View):
                 description = data.get('description')
                 branch = data.get('branch')
                 git_token_id = data.get('git_token_id')
+                github_token_id = data.get('github_token_id')
                 stages = data.get('stages')
                 parameters = data.get('parameters')
                 notification_channels = data.get('notification_channels')
@@ -551,7 +599,7 @@ class BuildTaskView(View):
                         if not external_script_branch:
                             return JsonResponse({
                                 'code': 400,
-                                'message': '外部脚本库分支名称不能为空'
+                                'message': '外部脚本库分支不能为空'
                             })
 
                         external_script_config = {
@@ -563,29 +611,14 @@ class BuildTaskView(View):
                     else:
                         external_script_config = {}
 
-                # 验证参数配置格式
-                if parameters:
-                    import re
-                    for param in parameters:
-                        if not param.get('name') or not param.get('choices'):
-                            return JsonResponse({
-                                'code': 400,
-                                'message': '参数名称和可选值不能为空'
-                            })
-                        
-                        # 验证参数名格式（大写字母、数字、下划线）
-                        if not re.match(r'^[A-Z_][A-Z0-9_]*$', param['name']):
-                            return JsonResponse({
-                                'code': 400,
-                                'message': f'参数名"{param["name"]}"格式不正确，只能包含大写字母、数字和下划线，且必须以字母或下划线开头'
-                            })
-
+                # 验证必填字段
                 if not task_id:
                     return JsonResponse({
                         'code': 400,
                         'message': '任务ID不能为空'
                     })
 
+                # 获取任务对象
                 try:
                     task = BuildTask.objects.get(task_id=task_id)
                 except BuildTask.DoesNotExist:
@@ -594,29 +627,13 @@ class BuildTaskView(View):
                         'message': '任务不存在'
                     })
 
-                # 如果只修改状态，需要检查是否有禁用权限
-                if status and len(data) == 2 and 'task_id' in data and 'status' in data:
-                    if 'disable' not in build_permissions:
-                        logger.warning(f'用户[{request.user_id}]没有禁用/启用任务权限')
-                        return JsonResponse({
-                            'code': 403,
-                            'message': '没有权限禁用/启用任务'
-                        }, status=403)
-                else:
-                    # 否则检查是否有编辑权限
-                    if 'edit' not in build_permissions:
-                        logger.warning(f'用户[{request.user_id}]没有编辑任务权限')
-                        return JsonResponse({
-                            'code': 403,
-                            'message': '没有权限编辑任务'
-                        }, status=403)
-
+                # 检查用户是否有权限编辑该任务
                 # 项目权限检查
                 project_scope = data_permissions.get('project_scope', 'all')
-                if project_id and project_scope == 'custom':
+                if project_scope == 'custom' and task.project:
                     permitted_project_ids = data_permissions.get('project_ids', [])
-                    if project_id not in permitted_project_ids:
-                        logger.warning(f'用户[{request.user_id}]尝试编辑无权限的项目[{project_id}]的构建任务')
+                    if task.project.project_id not in permitted_project_ids:
+                        logger.warning(f'用户[{request.user_id}]尝试编辑无权限的项目[{task.project.project_id}]的构建任务')
                         return JsonResponse({
                             'code': 403,
                             'message': '没有权限编辑该项目的构建任务'
@@ -624,46 +641,49 @@ class BuildTaskView(View):
 
                 # 环境权限检查
                 environment_scope = data_permissions.get('environment_scope', 'all')
-                if environment_id and environment_scope == 'custom':
-                    try:
-                        env = Environment.objects.get(environment_id=environment_id)
-                        permitted_environment_types = data_permissions.get('environment_types', [])
-                        if env.type not in permitted_environment_types:
-                            logger.warning(f'用户[{request.user_id}]尝试编辑无权限的环境类型[{env.type}]的构建任务')
-                            return JsonResponse({
-                                'code': 403,
-                                'message': '没有权限编辑该环境的构建任务'
-                            }, status=403)
-                    except Environment.DoesNotExist:
+                if environment_scope == 'custom' and task.environment:
+                    permitted_environment_ids = data_permissions.get('environment_ids', [])
+                    if task.environment.environment_id not in permitted_environment_ids:
+                        logger.warning(f'用户[{request.user_id}]尝试编辑无权限的环境[{task.environment.environment_id}]的构建任务')
                         return JsonResponse({
-                            'code': 404,
-                            'message': '环境不存在'
-                        })
+                            'code': 403,
+                            'message': '没有权限编辑该环境的构建任务'
+                        }, status=403)
 
-                # 更新项目关联
-                if project_id:
+                # 更新任务字段
+                update_fields = []
+                if name is not None:
+                    task.name = name
+                    update_fields.append('name')
+                if project_id is not None:
                     try:
                         project = Project.objects.get(project_id=project_id)
                         task.project = project
+                        update_fields.append('project')
                     except Project.DoesNotExist:
                         return JsonResponse({
                             'code': 404,
                             'message': '项目不存在'
                         })
-
-                # 更新环境关联
-                if environment_id:
+                if environment_id is not None:
                     try:
                         environment = Environment.objects.get(environment_id=environment_id)
                         task.environment = environment
+                        update_fields.append('environment')
                     except Environment.DoesNotExist:
                         return JsonResponse({
                             'code': 404,
                             'message': '环境不存在'
                         })
+                if description is not None:
+                    task.description = description
+                    update_fields.append('description')
+                if branch is not None:
+                    task.branch = branch
+                    update_fields.append('branch')
 
-                # 更新GitLab Token凭证关联
-                if 'git_token_id' in data:
+                # 更新GitLab Token
+                if git_token_id is not None:
                     if git_token_id:
                         try:
                             git_token = GitlabTokenCredential.objects.get(credential_id=git_token_id)
@@ -675,68 +695,61 @@ class BuildTaskView(View):
                             })
                     else:
                         task.git_token = None
+                    update_fields.append('git_token')
 
-                # 更新其他字段
-                if 'name' in data:
-                    # 检查任务名称是否已存在
-                    if BuildTask.objects.filter(name=name).exclude(task_id=task_id).exists():
-                        return JsonResponse({
-                            'code': 400,
-                            'message': f'任务名称 "{name}" 已存在，请使用其他名称'
-                        })
-                    task.name = name
-                if 'description' in data:
-                    task.description = description
-                if 'branch' in data:
-                    task.branch = branch
-                if 'stages' in data:
-                    task.stages = stages
-                if 'parameters' in data:
-                    task.parameters = parameters
-                if 'notification_channels' in data:
-                    # 验证通知机器人是否存在
-                    existing_robots = set(NotificationRobot.objects.filter(
-                        robot_id__in=notification_channels
-                    ).values_list('robot_id', flat=True))
-                    invalid_robots = set(notification_channels) - existing_robots
-                    if invalid_robots:
-                        return JsonResponse({
-                            'code': 400,
-                            'message': f'以下机器人不存在: {", ".join(invalid_robots)}'
-                        })
-                    task.notification_channels = notification_channels
-                if 'status' in data:
-                    task.status = status
-
-                # 更新外部脚本库配置
-                if 'use_external_script' in data:
-                    task.use_external_script = use_external_script
-                    task.external_script_config = external_script_config
-
-                # 更新自动构建配置
-                if 'auto_build_enabled' in data:
-                    task.auto_build_enabled = auto_build_enabled
-                    
-                    if auto_build_enabled:
-                        # 如果启用自动构建但没有webhook_token，生成一个
-                        if not task.webhook_token and not webhook_token:
-                            import secrets
-                            task.webhook_token = secrets.token_urlsafe(32)
-                        elif webhook_token is not None:
-                            task.webhook_token = webhook_token
+                # 更新GitHub Token
+                if github_token_id is not None:
+                    if github_token_id:
+                        try:
+                            github_token = GitHubTokenCredential.objects.get(credential_id=github_token_id)
+                            task.github_token = github_token
+                        except GitHubTokenCredential.DoesNotExist:
+                            return JsonResponse({
+                                'code': 404,
+                                'message': 'GitHub Token凭证不存在'
+                            })
                     else:
-                        # 如果取消自动构建，清除所有相关配置
-                        task.auto_build_branches = []
-                        task.webhook_token = ''
-                        
-                if 'auto_build_branches' in data and auto_build_enabled:
-                    task.auto_build_branches = auto_build_branches
+                        task.github_token = None
+                    update_fields.append('github_token')
 
-                task.save()
+                if stages is not None:
+                    task.stages = stages
+                    update_fields.append('stages')
+                if parameters is not None:
+                    task.parameters = parameters
+                    update_fields.append('parameters')
+                if notification_channels is not None:
+                    task.notification_channels = notification_channels
+                    update_fields.append('notification_channels')
+                if status is not None:
+                    task.status = status
+                    update_fields.append('status')
+                if auto_build_enabled is not None:
+                    task.auto_build_enabled = auto_build_enabled
+                    update_fields.append('auto_build_enabled')
+                if auto_build_branches is not None:
+                    task.auto_build_branches = auto_build_branches
+                    update_fields.append('auto_build_branches')
+                if webhook_token is not None:
+                    task.webhook_token = webhook_token
+                    update_fields.append('webhook_token')
+                if external_script_config is not None:
+                    task.external_script_config = external_script_config
+                    update_fields.append('external_script_config')
+                if use_external_script is not None:
+                    task.use_external_script = use_external_script
+                    update_fields.append('use_external_script')
+
+                # 保存更新
+                if update_fields:
+                    task.save(update_fields=update_fields)
 
                 return JsonResponse({
                     'code': 200,
-                    'message': '更新构建任务成功'
+                    'message': '更新构建任务成功',
+                    'data': {
+                        'task_id': task.task_id
+                    }
                 })
         except Exception as e:
             logger.error(f'更新构建任务失败: {str(e)}', exc_info=True)

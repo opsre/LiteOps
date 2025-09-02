@@ -74,6 +74,7 @@ CREATE TABLE `build_task` (
   `creator_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `environment_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `git_token_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `github_token_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `project_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `version` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `build_time` json NOT NULL DEFAULT (_utf8mb3'{}'),
@@ -90,10 +91,12 @@ CREATE TABLE `build_task` (
   KEY `build_task_creator_id_e702c745_fk_user_user_id` (`creator_id`),
   KEY `build_task_environment_id_8f5e7798_fk_environment_environment_id` (`environment_id`),
   KEY `build_task_git_token_id_813ab2b1_fk_gitlab_to` (`git_token_id`),
+  KEY `build_task_github_token_id_4e9a8d62_fk_github_to` (`github_token_id`),
   KEY `build_task_project_id_f92c80ac_fk_project_project_id` (`project_id`),
   CONSTRAINT `build_task_creator_id_e702c745_fk_user_user_id` FOREIGN KEY (`creator_id`) REFERENCES `user` (`user_id`),
   CONSTRAINT `build_task_environment_id_8f5e7798_fk_environment_environment_id` FOREIGN KEY (`environment_id`) REFERENCES `environment` (`environment_id`),
   CONSTRAINT `build_task_git_token_id_813ab2b1_fk_gitlab_to` FOREIGN KEY (`git_token_id`) REFERENCES `gitlab_token_credential` (`credential_id`),
+  CONSTRAINT `build_task_github_token_id_4e9a8d62_fk_github_to` FOREIGN KEY (`github_token_id`) REFERENCES `github_token_credential` (`credential_id`),
   CONSTRAINT `build_task_project_id_f92c80ac_fk_project_project_id` FOREIGN KEY (`project_id`) REFERENCES `project` (`project_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
@@ -133,6 +136,25 @@ CREATE TABLE `gitlab_token_credential` (
   UNIQUE KEY `credential_id` (`credential_id`),
   KEY `gitlab_token_credential_creator_id_d53c3666_fk_user_user_id` (`creator_id`),
   CONSTRAINT `gitlab_token_credential_creator_id_d53c3666_fk_user_user_id` FOREIGN KEY (`creator_id`) REFERENCES `user` (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+-- ----------------------------
+-- Table structure for github_token_credential
+-- ----------------------------
+DROP TABLE IF EXISTS `github_token_credential`;
+CREATE TABLE `github_token_credential` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `credential_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `description` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  `token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  `create_time` datetime(6) DEFAULT NULL,
+  `update_time` datetime(6) DEFAULT NULL,
+  `creator_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `credential_id` (`credential_id`),
+  KEY `github_token_credential_creator_id_74382951_fk_user_user_id` (`creator_id`),
+  CONSTRAINT `github_token_credential_creator_id_74382951_fk_user_user_id` FOREIGN KEY (`creator_id`) REFERENCES `user` (`user_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 -- ----------------------------
