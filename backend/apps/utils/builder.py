@@ -15,6 +15,7 @@ from .notifier import BuildNotifier
 from .log_stream import log_stream_manager
 from django.db.models import F
 from ..models import BuildTask, BuildHistory
+from ..views.github import get_github_token
 # from ..utils.builder import Builder
 # from ..utils.crypto import decrypt_sensitive_data
 
@@ -176,28 +177,84 @@ class Builder:
             # 获取Git凭证
             repository = self.task.project.repository
             self.send_log(f"仓库地址: {repository}", "Git Clone")
-            git_token = self.task.git_token.token if self.task.git_token else None
+            
+            # 根据仓库URL选择合适的Token
+            git_token = None
+            token_source = "未知"
+            if 'github.com' in repository:
+                # GitHub仓库，只使用GitHub Token
+                try:
+                    # 优先使用任务中配置的GitHub Token
+                    task_git_token = self.task.github_token.token if self.task.github_token else None
+                    token_source = "任务配置的GitHub Token" if self.task.github_token else "未配置"
+                    
+                    # 调用get_github_token函数获取Token，会优先使用传入的token，然后从数据库中查找
+                    original_token = task_git_token
+                    git_token = get_github_token(repository=repository, git_token=task_git_token)
+                    # 检查token是否发生了变化，以确定token的最终来源
+                    if git_token != original_token:
+                        token_source = "数据库中的GitHub Token凭证"
+                    self.send_log(f"获取GitHub Token成功: {'已配置' if git_token else '未配置'}", "Git Clone")
+                    self.send_log(f"Token来源: {token_source}", "Git Clone")
+                    # 记录token的前8位和后8位，以便识别但不泄露完整token
+                    if git_token:
+                        token_preview = git_token[:8] + '...' + git_token[-8:] if len(git_token) > 16 else '******'
+                        self.send_log(f"Token预览: {token_preview}", "Git Clone")
+                        # 检查是否是GitLab Token格式（通常以glpat-开头）
+                        if git_token.startswith('glpat-'):
+                            self.send_log("警告: 检测到使用了GitLab格式的Token访问GitHub仓库，这可能会导致认证失败", "Git Clone")
+                except Exception as e:
+                    self.send_log(f"获取GitHub Token时出错: {str(e)}", "Git Clone")
+            else:
+                # 其他仓库，使用GitLab Token
+                git_token = self.task.git_token.token if self.task.git_token else None
+                self.send_log(f"使用GitLab Token进行认证: {'已配置' if git_token else '未配置'}", "Git Clone")
 
             # 处理带有token的仓库URL
             if git_token and repository.startswith('http'):
+                # 确保处理所有可能的URL格式
+                self.send_log(f"原始仓库URL: {repository}", "Git Clone")
+                
+                # 移除任何现有的认证信息
                 if '@' in repository:
-                    repository = repository.split('@')[1]
-                    repository = f'https://oauth2:{git_token}@{repository}'
+                    # 提取域名和路径部分
+                    protocol_part = repository.split('://')[0] + '://'
+                    url_without_protocol = repository.split('://')[1]
+                    domain_and_path = url_without_protocol.split('@')[1]
+                    repository = f"{protocol_part}oauth2:{git_token}@{domain_and_path}"
                 else:
+                    # 标准URL格式，添加认证信息
                     repository = repository.replace('://', f'://oauth2:{git_token}@')
+                
+                self.send_log(f"处理后的认证URL: {repository.replace(git_token, '****')}", "Git Clone")
+            else:
+                if not git_token:
+                    self.send_log("警告: 未配置Git Token，可能需要手动输入用户名密码", "Git Clone")
 
             # 使用构建历史记录中的分支
             branch = self.history.branch
             self.send_log(f"克隆分支: {branch}", "Git Clone")
+            
+            # 验证分支名称格式是否正确
+            if not branch or not isinstance(branch, str) or len(branch.strip()) == 0:
+                self.send_log("错误: 分支名称无效或为空", "Git Clone")
+                return False
+            
+            # 验证构建路径是否有效
+            if not self.build_path or not isinstance(self.build_path, Path):
+                self.send_log(f"错误: 构建路径无效: {self.build_path}", "Git Clone")
+                return False
+            
             self.send_log("正在克隆代码，请稍候...", "Git Clone")
+            self.send_log(f"克隆命令参数: repository={repository}, path={self.build_path}, branch={branch}", "Git Clone")
 
-            # 克隆指定分支的代码
-            Repo.clone_from(
-                repository,
-                str(self.build_path),
-                branch=branch,
-                progress=self.git_progress
-            )
+            # 使用自定义的git克隆方法，获取更详细的错误信息
+            try:
+                if not self.custom_git_clone(repository, str(self.build_path), branch):
+                    return False
+            except Exception as e:
+                self.send_log(f"克隆代码时发生异常: {str(e)}", "Git Clone")
+                return False
 
             # 检查构建是否已被终止
             if self.check_if_terminated():
@@ -213,20 +270,117 @@ class Builder:
             return True
 
         except GitCommandError as e:
-            self.send_log(f"克隆代码失败: {str(e)}", "Git Clone")
+            error_msg = str(e)
+            self.send_log(f"克隆代码失败: {error_msg}", "Git Clone")
+            
+            # 分析常见的GitHub克隆失败原因
+            if 'github.com' in repository:
+                if '401' in error_msg or 'Unauthorized' in error_msg.lower():
+                    self.send_log("错误分析: 可能是GitHub Token无效或权限不足。请检查您的Token是否已过期，以及是否有足够权限访问该仓库。", "Git Clone")
+                    self.send_log("解决建议: 1. 确认Token有'repo'权限 2. 如果是组织仓库，确保Token已获得组织授权 3. 验证Token是否过期 4. 尝试使用Personal Access Token而不是Fine-grained Token", "Git Clone")
+                elif '403' in error_msg or 'Forbidden' in error_msg.lower():
+                    self.send_log("错误分析: 访问被拒绝。可能是Token权限不足，或者仓库设置了访问限制。", "Git Clone")
+                    self.send_log("解决建议: 确认Token有足够权限，对于组织仓库可能需要额外的组织授权。", "Git Clone")
+                elif '404' in error_msg or 'not found' in error_msg.lower():
+                    self.send_log("错误分析: 仓库不存在或无法访问。请检查仓库URL是否正确，以及您的Token是否有访问权限。", "Git Clone")
+                elif 'Could not read from remote repository' in error_msg:
+                    self.send_log("错误分析: 无法从远程仓库读取数据。这通常是权限问题。", "Git Clone")
+                    self.send_log("解决建议: 确认您的Token有足够的权限，并且仓库URL正确。", "Git Clone")
+                
             return False
         except Exception as e:
             self.send_log(f"发生错误: {str(e)}", "Git Clone")
             return False
 
     def git_progress(self, op_code, cur_count, max_count=None, message=''):
-        """Git进度回调"""
-        # 每秒检查一次构建是否已被终止
-        if int(time.time()) % 5 == 0:  # 每5秒检查一次
-            if self.check_if_terminated():
-                # 如果构建已被终止，尝试引发异常停止Git克隆
-                raise Exception("Build terminated")
-        pass
+        # 检查构建是否已被终止
+        if self.check_if_terminated():
+            self.send_log("检测到构建已被终止，停止克隆操作", "Git Clone")
+            raise Exception("构建已被终止")
+
+        # 每5秒发送一次进度信息，避免日志过多
+        current_time = time.time()
+        if not hasattr(self, 'last_progress_time') or current_time - self.last_progress_time >= 5:
+            self.last_progress_time = current_time
+            if max_count:
+                progress = int(cur_count / max_count * 100)
+                self.send_log(f"克隆进度: {progress}%", "Git Clone")
+            elif message:
+                self.send_log(f"克隆进度: {message}", "Git Clone")
+        
+    def custom_git_clone(self, repository, path, branch):
+            """使用subprocess直接调用git命令进行克隆，获取更详细的错误信息"""
+            try:
+                # 构建git克隆命令
+                cmd = ['git', 'clone', '-v', '--branch', branch, '--progress', repository, path]
+                self.send_log(f"执行克隆命令: {' '.join(cmd)}", "Git Clone")
+                
+                # 开始克隆，捕获标准输出和错误输出
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                
+                # 实时监控输出
+                stdout_lines = []
+                stderr_lines = []
+                
+                while True:
+                    # 检查构建是否已被终止
+                    if self.check_if_terminated():
+                        self.send_log("检测到构建已被终止，终止克隆进程", "Git Clone")
+                        process.terminate()
+                        return False
+                    
+                    # 非阻塞读取输出
+                    stdout_line = process.stdout.readline() if process.stdout else ''
+                    stderr_line = process.stderr.readline() if process.stderr else ''
+                    
+                    # 检查进程是否结束
+                    if stdout_line == '' and stderr_line == '' and process.poll() is not None:
+                        break
+                    
+                    # 处理标准输出
+                    if stdout_line:
+                        stdout_lines.append(stdout_line.strip())
+                        if 'Receiving objects' in stdout_line or 'Resolving deltas' in stdout_line:
+                            self.send_log(f"克隆进度: {stdout_line.strip()}", "Git Clone")
+                    
+                    # 处理标准错误输出
+                    if stderr_line:
+                        stderr_lines.append(stderr_line.strip())
+                        # 记录错误信息但不立即中断
+                        self.send_log(f"克隆警告: {stderr_line.strip()}", "Git Clone")
+                
+                # 检查退出码
+                exit_code = process.poll()
+                if exit_code != 0:
+                    # 输出完整的错误信息
+                    self.send_log(f"Git克隆失败，退出码: {exit_code}", "Git Clone")
+                    self.send_log(f"错误详情: {'\n'.join(stderr_lines)}", "Git Clone")
+                    self.send_log(f"标准输出: {'\n'.join(stdout_lines)}", "Git Clone")
+                    
+                    # 分析常见的GitHub克隆失败原因
+                    if 'github.com' in repository:
+                        error_text = ' '.join(stderr_lines + stdout_lines).lower()
+                        if '401' in error_text or 'unauthorized' in error_text:
+                            self.send_log("错误分析: GitHub认证失败。可能是Token无效、过期或权限不足。", "Git Clone")
+                            self.send_log("解决建议: 1. 确保使用的是GitHub Token而不是GitLab Token 2. 确认Token有'repo'权限 3. 检查Token是否过期", "Git Clone")
+                        elif '403' in error_text or 'forbidden' in error_text:
+                            self.send_log("错误分析: 访问被拒绝。可能是Token权限不足，或者仓库设置了访问限制。", "Git Clone")
+                        elif '404' in error_text or 'not found' in error_text:
+                            self.send_log("错误分析: 仓库不存在或无法访问。请检查仓库URL是否正确。", "Git Clone")
+                        elif 'could not read from remote repository' in error_text:
+                            self.send_log("错误分析: 无法从远程仓库读取数据。这通常是权限问题或网络问题。", "Git Clone")
+                    return False
+                
+                self.send_log("Git克隆命令执行成功", "Git Clone")
+                return True
+            except Exception as e:
+                self.send_log(f"执行git克隆命令时发生异常: {str(e)}", "Git Clone")
+                return False
 
     def clone_external_scripts(self):
         """克隆外部脚本库"""
@@ -273,9 +427,19 @@ class Builder:
             git_token = None
             if token_id:
                 try:
-                    from ..models import GitlabTokenCredential
-                    credential = GitlabTokenCredential.objects.get(credential_id=token_id)
-                    git_token = credential.token
+                    # 根据仓库URL选择合适的Token类型
+                    if 'github.com' in repo_url:
+                        # GitHub仓库，使用GitHub Token
+                        from ..models import GitHubTokenCredential
+                        credential = GitHubTokenCredential.objects.get(credential_id=token_id)
+                        git_token = credential.token
+                        self.send_log("使用GitHub Token进行外部脚本库认证", "External Scripts")
+                    else:
+                        # 其他仓库，使用GitLab Token
+                        from ..models import GitlabTokenCredential
+                        credential = GitlabTokenCredential.objects.get(credential_id=token_id)
+                        git_token = credential.token
+                        self.send_log("使用GitLab Token进行外部脚本库认证", "External Scripts")
                 except:
                     self.send_log("获取Git Token失败，尝试使用公开仓库方式克隆", "External Scripts")
 

@@ -18,6 +18,7 @@ from ..models import (
     GitlabTokenCredential,
     SSHKeyCredential,
     KubeconfigCredential,
+    GitHubTokenCredential,
     User
 )
 from ..utils.auth import jwt_auth_required
@@ -31,7 +32,7 @@ def generate_id():
 def encrypt_sensitive_data(data, credential_type=None):
     if not data:
         return None
-    if credential_type in ['gitlab_token', 'ssh_key']:
+    if credential_type in ['gitlab_token', 'ssh_key', 'github_token']:
         return data
     return make_password(data)
 
@@ -39,6 +40,7 @@ CREDENTIAL_MODELS = {
     'gitlab_token': GitlabTokenCredential,
     'ssh_key': SSHKeyCredential, 
     'kubeconfig': KubeconfigCredential, 
+    'github_token': GitHubTokenCredential,
 }
 
 class SSHKeyManager:
@@ -684,6 +686,8 @@ class CredentialView(View):
                 # 根据不同凭证类型添加特定字段
                 if credential_type == 'gitlab_token':
                     pass  # GitLab Token没有额外字段
+                elif credential_type == 'github_token':
+                    pass  # GitHub Token没有额外字段
                 elif credential_type == 'ssh_key':
                     # 添加部署状态
                     deployed, status = self.ssh_manager.get_deployment_status(credential.credential_id)
@@ -767,6 +771,8 @@ class CredentialView(View):
         # 根据不同凭证类型设置特定字段
         if credential_type == 'gitlab_token':
             credential.token = data.get('token')  # GitLab Token 不加密
+        elif credential_type == 'github_token':
+            credential.token = data.get('token')  # GitHub Token 不加密
         elif credential_type == 'ssh_key':
             credential.private_key = data.get('private_key')
             credential.passphrase = data.get('passphrase')
@@ -943,6 +949,9 @@ class CredentialView(View):
             if credential_type == 'gitlab_token':
                 if 'token' in data:  # 只在提供新token时更新
                     credential.token = data['token']  # GitLab Token 不加密
+            elif credential_type == 'github_token':
+                if 'token' in data:  # 只在提供新token时更新
+                    credential.token = data['token']  # GitHub Token 不加密
             elif credential_type == 'ssh_key':
                 if 'private_key' in data: # 只在提供新私钥时更新
                     credential.private_key = data['private_key']
@@ -1041,4 +1050,4 @@ class CredentialView(View):
             return JsonResponse({
                 'code': 500,
                 'message': f'服务器错误: {str(e)}'
-            }) 
+            })

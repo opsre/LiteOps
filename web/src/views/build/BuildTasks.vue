@@ -1029,7 +1029,7 @@ const loadBranches = async () => {
     // 显示加载提示
     message.loading('正在加载分支列表...', 0);
     
-    const response = await axios.get('/api/gitlab/branches/', {
+    const response = await axios.get('/api/github/branches/', {
       params: { task_id: selectedTask.value.task_id },
       headers: { 'Authorization': token },
       timeout: 30000 // 30秒超时

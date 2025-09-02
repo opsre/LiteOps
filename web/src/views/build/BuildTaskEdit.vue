@@ -72,12 +72,12 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="Git Token" name="git_token_id" required>
+            <a-form-item label="GitLab Token" name="git_token_id">
               <a-select
                 v-model:value="formState.git_token_id"
-                placeholder="请选择Git Token"
+                placeholder="请选择GitLab Token（GitLab仓库使用）"
                 :loading="gitCredentialsLoading"
-                :options="gitCredentials"
+                :options="gitlabCredentials"
                 show-search
                 :filter-option="filterOption"
               >
@@ -89,7 +89,31 @@
                 </template>
               </a-select>
               <div class="form-item-help">
-                用于访问Git仓库的Token凭证，如果没有合适的凭证，请先在凭证管理中添加
+                用于访问GitLab仓库的Token凭证，如果没有合适的凭证，请先在凭证管理中添加
+              </div>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="GitHub Token" name="github_token_id">
+              <a-select
+                v-model:value="formState.github_token_id"
+                placeholder="请选择GitHub Token（GitHub仓库使用）"
+                :loading="gitCredentialsLoading"
+                :options="githubCredentials"
+                show-search
+                :filter-option="filterOption"
+              >
+                <template #suffixIcon>
+                  <ReloadOutlined
+                    :spin="gitCredentialsLoading"
+                    @click="loadGitCredentials"
+                  />
+                </template>
+              </a-select>
+              <div class="form-item-help">
+                用于访问GitHub仓库的Token凭证，如果没有合适的凭证，请先在凭证管理中添加
               </div>
             </a-form-item>
           </a-col>
@@ -486,6 +510,8 @@ const loading = ref(false);
 const projectOptions = ref([]);
 const environmentOptions = ref([]);
 const gitCredentials = ref([]);
+const gitlabCredentials = ref([]);
+const githubCredentials = ref([]);
 const gitCredentialsLoading = ref(false);
 
 // 外部脚本仓库相关状态
@@ -525,6 +551,7 @@ const formState = reactive({
   description: '',
   branch: '',
   git_token_id: undefined,
+  github_token_id: undefined,
   use_external_script: false,
   external_script_repo_url: '',
   external_script_directory: '',
@@ -601,26 +628,44 @@ const loadEnvironments = async () => {
   }
 };
 
-// 加载Git Token凭证列表
+// 加载Git凭证列表（包括GitLab和GitHub）
 const loadGitCredentials = async () => {
   try {
     gitCredentialsLoading.value = true;
     const token = localStorage.getItem('token');
-    const response = await axios.get('/api/credentials/', {
-      params: { type: 'gitlab_token' },
-      headers: { 'Authorization': token }
-    });
     
-    if (response.data.code === 200) {
-      gitCredentials.value = response.data.data.map(item => ({
+    // 并行加载GitLab和GitHub凭证
+    const [gitlabResponse, githubResponse] = await Promise.all([
+      axios.get('/api/credentials/', {
+        params: { type: 'gitlab_token' },
+        headers: { 'Authorization': token }
+      }),
+      axios.get('/api/credentials/', {
+        params: { type: 'github_token' },
+        headers: { 'Authorization': token }
+      })
+    ]);
+    
+    // 处理GitLab凭证
+    if (gitlabResponse.data.code === 200) {
+      gitlabCredentials.value = gitlabResponse.data.data.map(item => ({
+        label: item.name,
+        value: item.credential_id,
+        description: item.description
+      }));
+    }
+    
+    // 处理GitHub凭证
+    if (githubResponse.data.code === 200) {
+      githubCredentials.value = githubResponse.data.data.map(item => ({
         label: item.name,
         value: item.credential_id,
         description: item.description
       }));
     }
   } catch (error) {
-    console.error('Load git credentials error:', error);
-    message.error('加载Git Token凭证失败');
+    console.error('加载Git凭证失败:', error);
+    message.error('加载Git凭证失败');
   } finally {
     gitCredentialsLoading.value = false;
   }
@@ -827,6 +872,9 @@ const loadTaskDetail = async (taskId) => {
       if (response.data.data.git_token) {
         formState.git_token_id = response.data.data.git_token.credential_id;
       }
+      if (response.data.data.github_token) {
+        formState.github_token_id = response.data.data.github_token.credential_id;
+      }
 
       // 加载相关选项数据
       await Promise.all([
@@ -915,6 +963,9 @@ const loadTaskDetailForCopy = async (sourceTaskId) => {
       }
       if (response.data.data.git_token) {
         formState.git_token_id = response.data.data.git_token.credential_id;
+      }
+      if (response.data.data.github_token) {
+        formState.github_token_id = response.data.data.github_token.credential_id;
       }
 
       // 加载相关选项数据
@@ -1280,4 +1331,4 @@ li {
   border-radius: 4px;
   border: 1px solid #e8e8e8;
 }
-</style> 
+</style>

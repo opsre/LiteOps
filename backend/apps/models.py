@@ -101,7 +101,7 @@ class Project(models.Model):
     name = models.CharField(max_length=50, null=True, verbose_name='项目名称')
     description = models.TextField(null=True, blank=True, verbose_name='项目描述')
     category = models.CharField(max_length=20, null=True, verbose_name='服务类别')  # frontend, backend, mobile
-    repository = models.CharField(max_length=255, null=True, verbose_name='GitLab仓库地址')
+    repository = models.CharField(max_length=255, null=True, verbose_name='代码仓库地址')
     creator = models.ForeignKey('User', on_delete=models.CASCADE, to_field='user_id', null=True, verbose_name='创建者')
     create_time = models.DateTimeField(auto_now_add=True, null=True, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, null=True, verbose_name='更新时间')
@@ -132,6 +132,29 @@ class GitlabTokenCredential(models.Model):
     class Meta:
         db_table = 'gitlab_token_credential'
         verbose_name = 'GitLab Token凭证'
+        verbose_name_plural = verbose_name
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return self.name
+
+
+class GitHubTokenCredential(models.Model):
+    """
+    GitHub Token凭证表
+    """
+    id = models.AutoField(primary_key=True)
+    credential_id = models.CharField(max_length=32, unique=True, null=True, verbose_name='凭证ID')
+    name = models.CharField(max_length=50, null=True, verbose_name='凭证名称')
+    description = models.TextField(null=True, blank=True, verbose_name='凭证描述')
+    token = models.CharField(max_length=255, null=True, verbose_name='GitHub Token')
+    creator = models.ForeignKey('User', on_delete=models.CASCADE, to_field='user_id', null=True, verbose_name='创建者')
+    create_time = models.DateTimeField(auto_now_add=True, null=True, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, null=True, verbose_name='更新时间')
+
+    class Meta:
+        db_table = 'github_token_credential'
+        verbose_name = 'GitHub Token凭证'
         verbose_name_plural = verbose_name
         ordering = ['-create_time']
 
@@ -221,7 +244,8 @@ class BuildTask(models.Model):
     description = models.TextField(null=True, blank=True, verbose_name='任务描述')
     requirement = models.TextField(null=True, blank=True, verbose_name='构建需求描述')
     branch = models.CharField(max_length=100, default='main', null=True, verbose_name='默认分支')
-    git_token = models.ForeignKey('GitlabTokenCredential', on_delete=models.SET_NULL, to_field='credential_id', null=True, verbose_name='Git Token')
+    git_token = models.ForeignKey('GitlabTokenCredential', on_delete=models.SET_NULL, to_field='credential_id', null=True, verbose_name='GitLab Token')
+    github_token = models.ForeignKey('GitHubTokenCredential', on_delete=models.SET_NULL, to_field='credential_id', null=True, verbose_name='GitHub Token')
     version = models.CharField(max_length=50, null=True, blank=True, verbose_name='构建版本号')
 
     # 构建阶段
