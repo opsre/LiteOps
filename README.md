@@ -138,8 +138,8 @@ cd backend
 pip3 install -r requirements.txt
 
 # 配置数据库（请先创建数据库并导入 liteops_init.sql）
-#可自定义修改 backend/config.txt 中的数据库配置文件
-cat backend/config.txt
+#可自定义修改 backend/conf/config.txt 中的数据库配置文件
+cat backend/conf/config.txt
 [client]
 host = 127.0.0.1  # 自定义IP
 port = 3306   # 自定义端口
