@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🚀 LiteOps - 轻量级DevOps平台
+# LiteOps
 
-<img src="liteops-sidebar.png" alt="LiteOps Logo" width="200"/>
+<img src="liteops-sidebar.png" alt="LiteOps logo" width="200"/>
 
-**简单、高效的CI/CD解决方案**
+**A lightweight, practical CI/CD platform for teams that need simple build and deployment automation.**
 
 </div>
 
@@ -12,285 +12,154 @@
   <img src="https://img.shields.io/badge/Python-3.9-14354C.svg?logo=python&logoColor=white" alt="Python 3.9"/>
   <img src="https://img.shields.io/badge/Vue.js-3-35495e.svg?logo=vue.js&logoColor=4FC08D" alt="Vue 3"/>
   <img src="https://img.shields.io/badge/Django-4.2-092E20.svg?logo=django&logoColor=white" alt="Django"/>
-  <img src="https://img.shields.io/badge/mysql-8-00000f.svg?logo=mysql&logoColor=white" alt="MySQL"/>
-  <img src="https://img.shields.io/docker/pulls/liteops/liteops?logo=docker&logoColor=white" alt="Docker Pulls"/>
+  <img src="https://img.shields.io/badge/MySQL-8-00000f.svg?logo=mysql&logoColor=white" alt="MySQL 8"/>
+  <img src="https://img.shields.io/docker/pulls/liteops/liteops?logo=docker&logoColor=white" alt="Docker pulls"/>
 </p>
 
+> The GitHub source code is the canonical latest version. The public website and Docker Hub images may lag behind the repository.
 
-# 项目介绍
-**注意根据GitHub源码内容为最新版本，官网和DockerHub更新稍慢**
+## Overview
 
-## LiteOps CICD 平台概述
+LiteOps is a focused CI/CD platform for automating build and deployment workflows without the operational complexity of a large CI system. It is designed around practical day-to-day needs: project management, environment configuration, reusable credentials, parameterized build tasks, build history, real-time logs, notifications, and GitLab webhook triggers.
 
-LiteOps 是一个专注实用性的 CI/CD 平台。只解决真问题 —— 自动化构建、部署 一体化平台。
+The goal is to provide a workflow that feels as approachable as a Jenkins freestyle job while still giving teams clear visibility into build status, execution logs, and deployment outcomes.
 
-## 项目特点
+## Features
 
-- **够用就好**：基于实际工作流程设计，没有复杂功能
-- **上手简单**：界面直观，学习成本低，像 Jenkins 自由风格 Job 一样简单
-- **针对痛点**：专门解决团队缺失的环节
+- Project and service management
+- Environment management for development, testing, staging, and production workflows
+- Build task configuration with branches, parameters, stages, external script repositories, and notifications
+- Manual and GitLab webhook-triggered builds
+- Real-time build log streaming and stage-level log views
+- Build history, dashboard statistics, build trends, and recent build summaries
+- Credential management for GitLab tokens, SSH keys, and kubeconfig files
+- Notification robot configuration and test delivery
+- User, role, permission, LDAP, login log, and basic system security management
+- Docker-based deployment option with Docker-in-Docker support for CI tasks
 
-## 功能预览
+## Screenshots
 
 <table align="center" width="100%">
   <tr>
     <td align="center" width="50%">
-      <img src="image/dashboard.png" alt="仪表板" width="90%"/>
+      <img src="image/dashboard.png" alt="Dashboard" width="90%"/>
     </td>
     <td align="center" width="50%">
-      <img src="image/projects_list.png" alt="项目列表" width="90%"/>
+      <img src="image/projects_list.png" alt="Project list" width="90%"/>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="image/build_tasks.png" alt="构建任务" width="90%"/>
+      <img src="image/build_tasks.png" alt="Build tasks" width="90%"/>
     </td>
     <td align="center">
-      <img src="image/build_execution.png" alt="构建需求" width="90%"/>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="image/build_tasks_log.png" alt="构建日志" width="90%"/>
-    </td>
-    <td align="center">
-      <img src="image/build_history1.png" alt="构建历史1" width="90%"/>
+      <img src="image/build_execution.png" alt="Build execution" width="90%"/>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="image/build_history2.png" alt="构建历史2" width="90%"/>
+      <img src="image/build_tasks_log.png" alt="Build task logs" width="90%"/>
     </td>
     <td align="center">
-      <img src="image/build_history3.png" alt="构建历史3" width="90%"/>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="image/system_basic.png" alt="系统设置" width="90%"/>
-    </td>
-    <td align="center">
-      <img src="image/cerdentials_kubeconfig.png" alt="凭据配置" width="90%"/>
+      <img src="image/build_history1.png" alt="Build history" width="90%"/>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="image/notify.png" alt="通知设置" width="90%"/>
+      <img src="image/build_history2.png" alt="Build history detail" width="90%"/>
     </td>
     <td align="center">
-      <img src="image/basic_ldap.png" alt="认证设置" width="70%"/>
+      <img src="image/build_history3.png" alt="Build stage logs" width="90%"/>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="image/system_basic.png" alt="System settings" width="90%"/>
+    </td>
+    <td align="center">
+      <img src="image/cerdentials_kubeconfig.png" alt="Kubeconfig credentials" width="90%"/>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="image/notify.png" alt="Notification settings" width="90%"/>
+    </td>
+    <td align="center">
+      <img src="image/basic_ldap.png" alt="LDAP settings" width="70%"/>
     </td>
   </tr>
 </table>
 
-## 技术架构
+## Tech Stack
 
-LiteOps采用前后端分离的架构设计：
+### Frontend
 
-### 前端技术栈
+- Vue 3
+- Ant Design Vue 4.x
+- Vue Router
+- Axios
+- ECharts
+- Vite
 
-- **Vue 3**：渐进式JavaScript框架
-- **Ant Design Vue 4.x**：基于Vue的UI组件库
-- **Axios**：基于Promise的HTTP客户端
-- **Vue Router**：Vue官方路由管理器
-- **echarts**：数据可视化图表库
+### Backend
 
-### 后端技术栈
+- Python 3.9+
+- Django 4.2
+- Uvicorn / ASGI
+- MySQL 8
+- PyMySQL
+- GitPython
+- python-gitlab
+- PyJWT
+- LDAP support through ldap3
 
-- **Django 4.2**：Python Web框架
-- **Django Channels**：WebSocket支持
-- **MySQL 8**：关系型数据库
-- **GitPython**：Git操作库
-- **Python-GitLab**：GitLab API客户端
-- **JWT认证**：用户身份验证
+## Repository Layout
 
-## 项目目标
+```text
+.
+|-- backend/                 # Django backend and API implementation
+|-- web/                     # Vue 3 frontend application
+|-- image/                   # README screenshots and support images
+|-- liteops-www/             # Documentation website source
+|-- liteops_init.sql         # Initial MySQL schema and data
+|-- start.sh                 # Source development startup script
+|-- start-containers.sh      # Docker deployment helper script
+|-- Dockerfile               # Docker-in-Docker application image
+`-- nginx.conf               # Nginx config for the container image
+```
 
-1. 把重复性、手动上传的构建部署工作自动化掉
-2. 减少人为操作错误，标准化流程  
-3. 提供清晰的构建状态和日志，出问题能快速定位
+## Source Deployment
 
-## 📋 源码部署 （推荐）
+Use this path when you want to run LiteOps from the repository.
 
-如果你想从源码运行 LiteOps，可以按照以下步骤操作：
+### Requirements
 
-### 环境要求
+- Python 3.9+
+- Node.js 18+
+- MySQL 8.0+
+- Git
+- Docker, kubectl, Maven, or other build tools as required by your own build stages
 
-- **Python**：3.9+
-- **Node.js**：18+
-- **MySQL**：8.0+
-- **Git**：用于克隆源码
-
-### 1. 克隆项目
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/opsre/LiteOps.git
 cd LiteOps
 ```
 
-### 2. 后端部署
+### 2. Initialize MySQL
+
+Create the database and import the initial data:
 
 ```bash
-# 进入后端目录
-cd backend
-
-# 安装 Python 依赖
-pip3 install -r requirements.txt
-
-# 配置数据库（请先创建数据库并导入 liteops_init.sql）
-#可自定义修改 backend/conf/config.txt 中的数据库配置文件
-cat backend/conf/config.txt
-[client]
-host = 127.0.0.1  # 自定义IP
-port = 3306   # 自定义端口
-database = liteops
-user = root
-password = 1234567xx # 自定义密码
-default-character-set = utf8mb4
+mysql -uroot -p < liteops_init.sql
 ```
 
-```bash
-# 启动后端服务
-python3 -m uvicorn backend.asgi:application --host 0.0.0.0 --port 8900
-```
+Then update `backend/conf/config.txt` to match your MySQL connection:
 
-### 3. 前端部署
-
-```bash
-# 新开终端，进入前端目录
-cd web
-
-# 安装依赖
-npm i
-# 或者
-npm install
-
-# 开发模式启动
-npm run dev
-
-# 生产环境构建（dist静态文件）
-npm run build
-```
-
-### 4. 一键启动脚本（可选）
-
-为了方便启动，我提供了一个启动脚本来同时启动前后端服务：
-
-```bash
-# 给启动脚本执行权限
-chmod +x start.sh
-
-# 执行一键启动（同时启动前端和后端）
-./start.sh
-```
-
-启动脚本会：
-- 检查端口占用情况（8900、8000端口）
-- 自动安装缺失的依赖
-- 自动启动后端服务（端口8900）
-- 自动启动前端开发服务器（端口8000）
-- 支持优雅停止（Ctrl+C时自动清理进程）
-
-### 5. 访问应用
-
-- **开发模式**：
-  - 前端：http://localhost:8000
-  - 后端：http://localhost:8900
-  
-- **生产模式**：
-  - 配置 Nginx Web 服务器托管前端构建文件
-  - 后端接口 http://localhost:8900
-
-### 注意事项
-
-- 确保 MySQL 服务正常运行，并已导入初始化 SQL 文件
-- 修改前端 API 地址配置以匹配后端服务地址
-
-## 🚀 Docker快速部署（比较臃肿，使用了DinD模式，懂哥可自定义Dockerfile构建）
-
-如果你希望快速体验LiteOps而不想配置开发环境，可以使用Docker方式部署：
-
-### 1. 获取部署文件
-
-你需要获取以下部署文件：
-
-- `start-containers.sh` - 一键部署脚本
-- `liteops_init.sql` - 数据库初始化文件
-- `liteops` - Docker镜像
-
-### 2. 获取Docker镜像
-
-```bash
-# 拉取LiteOps镜像
-docker pull liteops/liteops:[最新版本号]
-```
-
-### 3. 准备部署文件
-
-创建部署目录并放置必要文件：
-
-```bash
-# 创建部署目录
-mkdir liteops-deploy
-cd liteops-deploy
-
-# 将以下文件放入此目录：
-# - start-containers.sh
-# - liteops_init.sql
-```
-
-### 4. 一键部署
-
-使用提供的启动脚本进行自动化部署：
-
-```bash
-# 给启动脚本执行权限
-chmod +x start-containers.sh
-
-# 执行一键部署
-./start-containers.sh
-```
-### 5. 不使用一键部署方式，自定义数据库
-
-#### 方案A：配置文件挂载方式
-
-```bash
-# 1. 先启动MySQL容器（可自定义mysql）
-docker run -d \
-    --name liteops-mysql \
-    -e MYSQL_ROOT_PASSWORD=your_password \
-    -p 3306:3306 \
-    mysql:8.0
-
-# 等待MySQL启动完成后导入初始化数据（会自动创建liteops数据库）
-docker exec -i liteops-mysql mysql -uroot -pyour_password < liteops_init.sql
-
-# 2. 在宿主机创建配置文件
-mkdir -p ./liteops-config
-cat > ./liteops-config/config.txt << EOF
-[client]
-host = 数据库IP  # 如果使用Docker网络，填写容器名
-port = 3306
-database = liteops
-user = root
-password = your_password  # 替换为你的实际密码
-default-character-set = utf8mb4
-EOF
-
-# 3. 启动LiteOps容器，挂载配置文件
-docker run -d \
-    --name liteops \
-    --privileged \
-    -p 80:80 \
-    -p 8900:8900 \
-    -v $(pwd)/liteops-config/config.txt:/app/conf/config.txt \
-    liteops/liteops:[最新版本]
-```
-
-配置文件 `config.txt`：
 ```ini
 [client]
-host = 数据库IP
+host = 127.0.0.1
 port = 3306
 database = liteops
 user = root
@@ -298,67 +167,158 @@ password = your_password
 default-character-set = utf8mb4
 ```
 
-### 6. 验证部署
-
-部署完成后，你可以通过以下方式验证：
+### 3. Start the backend
 
 ```bash
-# 检查容器状态
-docker ps
+cd backend
+pip3 install Django==4.2.13
+pip3 install -r requirements.txt
+python3 -m uvicorn backend.asgi:application --host 0.0.0.0 --port 8900
+```
 
-# 检查日志
+The backend API is available at:
+
+```text
+http://localhost:8900
+```
+
+### 4. Start the frontend
+
+Open a new terminal:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+The Vite development server is configured to run at:
+
+```text
+http://localhost:8000
+```
+
+### 5. Optional one-command startup
+
+From the project root:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+The script checks ports `8900` and `8000`, installs missing dependencies, starts the backend and frontend, and cleans up child processes when you press `Ctrl+C`.
+
+## Docker Deployment
+
+Use Docker when you want a quick evaluation environment.
+
+### 1. Prepare deployment files
+
+You need these files in your deployment directory:
+
+- `start-containers.sh`
+- `liteops_init.sql`
+- The LiteOps Docker image
+
+### 2. Pull the image
+
+```bash
+docker pull liteops/liteops:<version>
+```
+
+### 3. Run the helper script
+
+```bash
+chmod +x start-containers.sh
+./start-containers.sh
+```
+
+The script creates a Docker network, starts MySQL, imports `liteops_init.sql`, and starts the LiteOps container in privileged Docker-in-Docker mode.
+
+After deployment:
+
+```text
+Frontend: http://localhost
+Backend API: http://localhost:8900/api/
+MySQL: localhost:3306
+```
+
+### Custom database configuration
+
+You can also run LiteOps against your own MySQL instance by mounting a custom config file:
+
+```bash
+mkdir -p ./liteops-config
+cat > ./liteops-config/config.txt << EOF
+[client]
+host = your_mysql_host
+port = 3306
+database = liteops
+user = root
+password = your_password
+default-character-set = utf8mb4
+EOF
+
+docker run -d \
+  --name liteops \
+  --privileged \
+  -p 80:80 \
+  -p 8900:8900 \
+  -v "$(pwd)/liteops-config/config.txt:/app/conf/config.txt" \
+  liteops/liteops:<version>
+```
+
+### Verify the deployment
+
+```bash
+docker ps
 docker logs liteops
 ```
 
-### 访问应用
+## Default Login
 
-部署成功后，你可以通过以下地址访问：
+```text
+Username: admin
+Password: admin123
+```
 
-- **前端界面**：http://localhost
-- **后端API**：http://localhost:8900/api/
-- **MySQL数据库**：localhost:3306
+Change the initial password after first login.
 
-### 默认登录信息
+## Documentation
 
-- **用户名**：admin
-- **密码**：admin123 (初始密码，可自行修改)
+Feature documentation is available at:
 
-## 项目当前状态
+```text
+https://liteops.ext4.cn
+```
 
-LiteOps目前处于很多功能未完善状态，虽然核心功能已经初步实现，但仍有许多需求和功能有待完善，。我希望通过开源的方式收集更多的需求和建议，使这个项目能够更好地服务于实际开发场景。
+## Project Status
 
-### 需求征集
+LiteOps is still under active development. The core workflow is implemented, but many features and refinements are still evolving. Feedback from real CI/CD scenarios is welcome, especially around missing workflow features, usability improvements, and deployment pain points that are not yet covered.
 
-我诚挚邀请你在查看[功能介绍文档](https://liteops.ext4.cn)和了解LiteOps后，提供宝贵的意见和建议：
+## Support the Author
 
-功能介绍文档：https://liteops.ext4.cn
-
-- **功能需求**：你希望看到哪些新功能或改进？
-- **用户体验**：界面和操作流程是否符合你的使用习惯？
-- **实际场景**：在你的工作环境中，有哪些CI/CD痛点尚未解决？
-
-## ☕ 请作者喝咖啡
-
-如果 LiteOps 对你有帮助，欢迎请作者喝杯咖啡，你的支持是我持续更新的动力！
+If LiteOps is useful to you, donations are welcome and help support continued maintenance.
 
 <div align="center">
   <table>
     <tr>
       <td align="center">
-        <img src="image/alipay.jpg" alt="支付宝" width="200"/>
+        <img src="image/alipay.jpg" alt="Alipay" width="200"/>
         <br/>
-        <strong>支付宝</strong>
+        <strong>Alipay</strong>
       </td>
       <td align="center">
-        <img src="image/wechat.jpg" alt="微信" width="200"/>
+        <img src="image/wechat.jpg" alt="WeChat Pay" width="200"/>
         <br/>
-        <strong>微信</strong>
+        <strong>WeChat Pay</strong>
       </td>
     </tr>
   </table>
 </div>
 
-## 🎉 感谢各位支持LiteOps
+## Supporters
 
 <table align="center">
   <tr>
@@ -379,14 +339,16 @@ LiteOps目前处于很多功能未完善状态，虽然核心功能已经初步�
   </tr>
 </table>
 
-## 📞 联系我
+## Contact
 
-如果你对LiteOps有任何建议、问题或需求，欢迎通过以下方式联系我：
+- Email: hukdoesn@163.com
+- Issues: https://github.com/hukdoesn/liteops/issues
 
-- **邮箱**：hukdoesn@163.com
-- **GitHub Issues**：[提交问题或建议](https://github.com/hukdoesn/liteops/issues)
+<img src="image/wechat.png" alt="WeChat contact QR code" width="300">
 
-<img src="image/wechat.png" alt="Magic Gardens" width="300">
+## License
+
+This project is licensed under the terms in [LICENSE](LICENSE).
 
 ---
 
