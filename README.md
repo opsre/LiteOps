@@ -352,4 +352,4 @@ This project is licensed under the terms in [LICENSE](LICENSE).
 
 ---
 
-[![Star History Chart](https://api.star-history.com/svg?repos=opsre/LiteOps&type=Date)](https://www.star-history.com/#opsre/LiteOps&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=opsre/LiteOps&type=Date)](https://star-history.dera.page/#opsre/LiteOps&Date)
